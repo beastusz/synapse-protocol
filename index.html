@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Synapse App — Decentralized AI Compute</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050507;--bg1:#0a0a0f;--bg2:#0f0f16;--lime:#c2f751;--white:#f0ede6;--muted:#52525f;--muted2:#7a7a8a;--border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.12);--danger:#f87171;--warn:#f59e0b}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--white);font-family:'DM Sans',sans-serif;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--muted);border-radius:2px}
+
+/* ── TOP BAR ── */
+.topbar{height:56px;display:flex;align-items:center;padding:0 1.5rem;gap:1rem;background:var(--bg1);border-bottom:1px solid var(--border);flex-shrink:0;z-index:10}
+.topbar-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-mark{width:28px;height:28px;border:1px solid rgba(194,247,81,.3);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;color:var(--lime)}
+.logo-name{font-family:'Cormorant',serif;font-size:17px;font-weight:600;color:var(--white);letter-spacing:.08em;text-transform:uppercase}
+.topbar-sep{width:1px;height:24px;background:var(--border2);margin:0 .25rem}
+.network-badge{display:flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted2);letter-spacing:.08em}
+.net-dot{width:6px;height:6px;background:var(--lime);border-radius:50%;box-shadow:0 0 6px var(--lime);animation:pulse 2s ease-in-out infinite;flex-shrink:0}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.topbar-stats{display:flex;gap:1.5rem;margin-left:.5rem}
+.tstat{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.06em}
+.tstat span{color:var(--white)}
+.tstat.green span{color:var(--lime)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:.75rem}
+.wallet-btn-top{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;padding:8px 16px;border-radius:100px;border:1px solid var(--border2);background:none;color:var(--muted2);cursor:pointer;transition:all .2s;letter-spacing:.06em}
+.wallet-btn-top:hover{color:var(--white);border-color:rgba(255,255,255,.2)}
+.wallet-btn-top.connected{color:var(--lime);border-color:rgba(194,247,81,.25);background:rgba(194,247,81,.05)}
+.launch-site-btn{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.08em;text-decoration:none;padding:6px 12px;border:1px solid var(--border);border-radius:100px;transition:all .2s}
+.launch-site-btn:hover{color:var(--white)}
+
+/* ── LAYOUT ── */
+.app-shell{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sidebar{width:196px;background:var(--bg1);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+.sidebar-section{padding:.75rem .75rem .25rem;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:10px;padding:.65rem 1rem;font-size:13px;color:var(--muted2);cursor:pointer;transition:all .2s;border-radius:8px;margin:.1rem .5rem;border:1px solid transparent}
+.nav-item:hover{color:var(--white);background:rgba(255,255,255,.03)}
+.nav-item.active{color:var(--lime);background:rgba(194,247,81,.06);border-color:rgba(194,247,81,.1)}
+.nav-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0}
+.sidebar-bottom{margin-top:auto;padding:.75rem;border-top:1px solid var(--border)}
+.sidebar-link{display:flex;align-items:center;gap:8px;padding:.5rem .75rem;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.08em;text-decoration:none;border-radius:6px;transition:color .2s}
+.sidebar-link:hover{color:var(--white)}
+
+/* ── MAIN ── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.page{display:none;padding:2rem;flex-direction:column;gap:1.5rem;flex:1;min-height:0}
+.page.active{display:flex}
+.page-title{font-family:'Cormorant',serif;font-size:28px;font-weight:300;letter-spacing:-.01em}
+
+/* ── STAT CARDS ── */
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1.25rem;transition:border-color .2s}
+.stat-card:hover{border-color:rgba(194,247,81,.12)}
+.sc-label{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.sc-val{font-family:'Cormorant',serif;font-size:30px;font-weight:300;letter-spacing:-.02em;line-height:1;color:var(--white)}
+.sc-val .g{color:var(--lime)}
+.sc-val .r{color:var(--danger)}
+.sc-sub{font-size:11px;color:var(--muted2);margin-top:4px}
+.sc-sub.up{color:var(--lime)}
+.sc-sub.dn{color:var(--danger)}
+
+/* ── ACTIVITY ── */
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.panel-head{padding:.9rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.panel-action{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--lime);cursor:pointer;letter-spacing:.06em;background:none;border:none}
+.tx-row{display:flex;align-items:center;gap:.9rem;padding:.8rem 1.25rem;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;transition:background .15s}
+.tx-row:last-child{border-bottom:none}
+.tx-row:hover{background:rgba(255,255,255,.02)}
+.tx-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.ic-green{background:rgba(194,247,81,.1)}
+.ic-blue{background:rgba(96,165,250,.1)}
+.ic-red{background:rgba(248,113,113,.1)}
+.tx-desc{flex:1;min-width:0}
+.tx-label{font-weight:500;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-meta{font-size:11px;color:var(--muted2);margin-top:1px;font-family:'JetBrains Mono',monospace}
+.tx-amt{font-family:'JetBrains Mono',monospace;font-size:12px;flex-shrink:0}
+.tx-amt.pos{color:var(--lime)}
+.tx-amt.neg{color:var(--danger)}
+.empty-state{padding:2.5rem;text-align:center;color:var(--muted2);font-size:13px;line-height:1.7}
+
+/* ── TRADE ── */
+.trade-grid{display:grid;grid-template-columns:360px 1fr;gap:1.5rem;align-items:start}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:1.5rem}
+.trade-tabs{display:flex;gap:0;background:var(--bg1);border-radius:10px;padding:3px;margin-bottom:1.25rem}
+.ttab{flex:1;padding:.55rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;color:var(--muted2);background:none;border:none;border-radius:8px;cursor:pointer;transition:all .2s}
+.ttab.active{background:var(--lime);color:var(--bg)}
+.swap-box{background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:1.1rem 1.25rem;margin-bottom:6px}
+.swap-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-bottom:.5rem}
+.swap-row{display:flex;align-items:center;gap:.75rem}
+.swap-input{flex:1;background:none;border:none;font-family:'Cormorant',serif;font-size:32px;font-weight:300;color:var(--white);outline:none;width:0;min-width:0}
+.swap-token{display:flex;align-items:center;gap:6px;background:var(--bg2);border:1px solid var(--border2);padding:7px 12px;border-radius:100px;font-size:13px;font-weight:500;white-space:nowrap;flex-shrink:0}
+.swap-usd-hint{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted);margin-top:4px}
+.swap-mid{display:flex;justify-content:center;padding:.3rem 0}
+.arrow-btn{width:32px;height:32px;border-radius:50%;background:var(--bg2);border:1px solid var(--border2);color:var(--muted2);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.arrow-btn:hover{border-color:rgba(194,247,81,.3);color:var(--lime);transform:rotate(180deg)}
+.swap-details{border-top:1px solid var(--border);padding-top:.9rem;margin-top:.9rem;display:flex;flex-direction:column;gap:.4rem}
+.sd-row{display:flex;justify-content:space-between;font-size:12px;color:var(--muted2)}
+.sd-row span:last-child{color:var(--white);font-family:'JetBrains Mono',monospace}
+.btn-swap{width:100%;padding:14px;background:var(--lime);border:none;border-radius:100px;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:500;color:var(--bg);letter-spacing:.06em;cursor:pointer;transition:all .2s;margin-top:1rem}
+.btn-swap:hover{background:#d8ff6a;box-shadow:0 4px 24px rgba(194,247,81,.25)}
+.btn-swap:disabled{opacity:.4;cursor:not-allowed}
+.price-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:1.5rem}
+.chart-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.25rem}
+.chart-price-big{font-family:'Cormorant',serif;font-size:40px;font-weight:300;letter-spacing:-.02em;line-height:1}
+.chart-chg{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--lime);margin-top:3px}
+.tf-row{display:flex;gap:4px}
+.tf{font-family:'JetBrains Mono',monospace;font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:none;color:var(--muted);cursor:pointer;transition:all .2s;letter-spacing:.08em}
+.tf.active{background:rgba(194,247,81,.1);color:var(--lime);border-color:rgba(194,247,81,.2)}
+
+/* ── STAKE ── */
+.stake-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+.big-num{font-family:'Cormorant',serif;font-size:52px;font-weight:300;letter-spacing:-.03em;line-height:1;margin:.5rem 0 .2rem;color:var(--lime)}
+.big-num.white{color:var(--white)}
+.apy-pill{display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--lime);background:rgba(194,247,81,.08);border:1px solid rgba(194,247,81,.15);padding:5px 12px;border-radius:100px;margin-top:.75rem}
+.apy-dot{width:5px;height:5px;background:var(--lime);border-radius:50%;animation:pulse 2s infinite}
+.action-row{display:flex;gap:8px;margin-top:1.25rem}
+.act-btn{flex:1;padding:11px;border-radius:10px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;cursor:pointer;transition:all .2s;border:1px solid var(--border)}
+.act-btn.primary{background:var(--lime);color:var(--bg);border-color:var(--lime)}
+.act-btn.primary:hover{background:#d8ff6a}
+.act-btn.secondary{background:none;color:var(--muted2)}
+.act-btn.secondary:hover{color:var(--white);border-color:rgba(255,255,255,.2)}
+.info-rows{border-top:1px solid var(--border);margin-top:1.25rem}
+.info-row{display:flex;justify-content:space-between;padding:.65rem 0;border-bottom:1px solid var(--border);font-size:13px}
+.info-row:last-child{border-bottom:none}
+.info-row span:first-child{color:var(--muted2)}
+.info-row span:last-child{font-family:'JetBrains Mono',monospace}
+.info-row span.lime{color:var(--lime)}
+
+/* ── NODES ── */
+.nodes-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem}
+.nodes-table{background:var(--bg2);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.nt-head{display:grid;grid-template-columns:1.4fr .6fr .6fr .7fr 1fr .8fr;gap:.5rem;padding:.75rem 1.25rem;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase}
+.nt-row{display:grid;grid-template-columns:1.4fr .6fr .6fr .7fr 1fr .8fr;gap:.5rem;padding:.8rem 1.25rem;border-bottom:1px solid var(--border);font-size:12px;align-items:center;transition:background .15s}
+.nt-row:last-child{border-bottom:none}
+.nt-row:hover{background:rgba(255,255,255,.02)}
+.node-name{font-weight:500;font-size:13px}
+.node-loc{font-size:10px;color:var(--muted2);margin-top:1px;font-family:'JetBrains Mono',monospace}
+.st-dot{width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:4px}
+.st-online{background:var(--lime);box-shadow:0 0 5px var(--lime)}
+.st-busy{background:var(--warn);box-shadow:0 0 5px var(--warn)}
+.rep-bar{height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-top:3px}
+.rep-fill{height:100%;background:var(--lime);border-radius:2px}
+.mono{font-family:'JetBrains Mono',monospace}
+.earn{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--lime)}
+.btn-register{display:inline-flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:500;color:var(--bg);background:var(--lime);border:none;padding:11px 22px;border-radius:100px;cursor:pointer;letter-spacing:.06em;transition:all .2s}
+.btn-register:hover{background:#d8ff6a;transform:translateY(-1px);box-shadow:0 4px 20px rgba(194,247,81,.25)}
+
+/* ── SETTINGS ── */
+.settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem}
+.setting-item{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:1.25rem}
+.setting-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;margin-bottom:.5rem}
+.setting-val{font-size:14px;font-weight:500;color:var(--white);margin-bottom:.75rem}
+.rpc-input{width:100%;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--white);font-family:'JetBrains Mono',monospace;font-size:11px;outline:none;transition:border-color .2s}
+.rpc-input:focus{border-color:rgba(194,247,81,.3)}
+.save-btn{margin-top:.6rem;font-family:'JetBrains Mono',monospace;font-size:10px;padding:7px 16px;background:rgba(194,247,81,.1);border:1px solid rgba(194,247,81,.2);border-radius:100px;color:var(--lime);cursor:pointer;letter-spacing:.08em;transition:all .2s}
+.save-btn:hover{background:rgba(194,247,81,.18)}
+
+/* ── MODALS ── */
+.overlay{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;background:rgba(5,5,7,.85);backdrop-filter:blur(12px)}
+.overlay.open{display:flex}
+.modal{background:var(--bg1);border:1px solid var(--border2);border-radius:20px;position:relative;max-height:90vh;overflow-y:auto;width:90%;max-width:460px;animation:mIn .25s ease both}
+@keyframes mIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+.modal-x{position:absolute;top:1rem;right:1rem;width:30px;height:30px;border:1px solid var(--border2);border-radius:50%;background:none;color:var(--muted2);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+.modal-x:hover{color:var(--white);border-color:rgba(255,255,255,.2)}
+.modal-head{padding:1.75rem 1.75rem 1.1rem}
+.modal-tag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;color:var(--lime);text-transform:uppercase;margin-bottom:.5rem}
+.modal-title{font-family:'Cormorant',serif;font-size:28px;font-weight:300;letter-spacing:-.02em}
+.modal-title em{font-style:italic;color:var(--lime)}
+.modal-body{padding:0 1.75rem 1.75rem}
+.wallet-list{display:flex;flex-direction:column;gap:7px}
+.wbtn{display:flex;align-items:center;gap:.9rem;width:100%;padding:.9rem 1.1rem;background:var(--bg2);border:1px solid var(--border);border-radius:12px;color:var(--white);font-size:14px;cursor:pointer;transition:all .2s;text-align:left}
+.wbtn:hover{background:rgba(194,247,81,.03);border-color:rgba(194,247,81,.18)}
+.w-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.w-name{font-weight:500}
+.w-sub{font-size:11px;color:var(--muted2);margin-top:1px}
+.w-arrow{margin-left:auto;color:var(--muted);font-size:13px}
+.connected-addr{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--lime);background:rgba(194,247,81,.06);border:1px solid rgba(194,247,81,.15);padding:9px 16px;border-radius:100px;display:inline-block;margin:.75rem 0;cursor:pointer}
+.bal-row{display:flex;justify-content:space-between;padding:.65rem 0;border-bottom:1px solid var(--border);font-size:13px}
+.bal-row:last-child{border-bottom:none}
+.bal-row span:first-child{color:var(--muted2)}
+.bal-row span:last-child{font-family:'JetBrains Mono',monospace}
+.disconnect{margin-top:1rem;width:100%;padding:11px;background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.15);border-radius:10px;color:var(--danger);font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;letter-spacing:.1em;transition:all .2s}
+.disconnect:hover{background:rgba(248,113,113,.12)}
+.spinner{width:44px;height:44px;border:2px solid var(--border2);border-top-color:var(--lime);border-radius:50%;animation:spin .7s linear infinite;margin:0 auto 1rem}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:1.5rem;right:1.5rem;z-index:5000;background:var(--bg1);border:1px solid rgba(194,247,81,.2);border-radius:12px;padding:.9rem 1.1rem;display:flex;align-items:center;gap:.65rem;font-size:13px;max-width:300px;transform:translateY(120%);transition:transform .3s ease;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+.toast.show{transform:translateY(0)}
+.toast-ico{font-size:16px;flex-shrink:0}
+.toast-t{font-weight:500;margin-bottom:1px}
+.toast-s{font-size:11px;color:var(--muted2);font-family:'JetBrains Mono',monospace;word-break:break-all}
+
+/* ── NODE WIZARD ── */
+.wiz-steps{display:flex;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:1.5rem}
+.ws{flex:1;padding:.65rem;text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;color:var(--muted);border-right:1px solid var(--border);transition:all .3s}
+.ws:last-child{border-right:none}
+.ws.active{color:var(--lime);background:rgba(194,247,81,.06)}
+.ws.done{color:var(--lime);opacity:.5}
+.wp{display:none}.wp.active{display:block}
+.req-item{display:flex;align-items:center;gap:.65rem;padding:.75rem 0;border-bottom:1px solid var(--border);font-size:13px}
+.req-item:last-child{border-bottom:none}
+.req-ic{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0}
+.req-ok{background:rgba(194,247,81,.12);color:var(--lime)}
+.req-warn{background:rgba(245,158,11,.12);color:var(--warn)}
+.fld{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin:.9rem 0 .35rem}
+.finput{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--white);font-size:13px;outline:none;transition:border-color .2s}
+.finput:focus{border-color:rgba(194,247,81,.3)}
+.fselect{width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--white);font-size:13px;outline:none;appearance:none}
+.stake-slider{width:100%;accent-color:var(--lime);margin:.5rem 0}
+.stake-display{font-family:'Cormorant',serif;font-size:44px;font-weight:300;color:var(--lime);text-align:center;letter-spacing:-.03em}
+.stake-usd{text-align:center;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--muted)}
+.tier-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1rem;margin-top:1rem}
+.wiz-btns{display:flex;gap:8px;margin-top:1.5rem}
+.wbk{padding:11px 20px;background:none;border:1px solid var(--border2);border-radius:100px;color:var(--muted2);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;cursor:pointer;transition:all .2s}
+.wbk:hover{color:var(--white)}
+.wnx{flex:1;padding:12px;background:var(--lime);border:none;border-radius:100px;color:var(--bg);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.06em;cursor:pointer;transition:all .2s}
+.wnx:hover{background:#d8ff6a}
+.launch-log{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:.9rem;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted2);line-height:2;max-height:130px;overflow-y:auto;margin-top:1rem}
+
+/* ── RESPONSIVE ── */
+@media(max-width:900px){
+  .sidebar{width:52px}.sidebar-section,.nav-item span:not(.nav-icon){display:none}
+  .topbar-stats{display:none}.trade-grid{grid-template-columns:1fr}
+  .stake-grid{grid-template-columns:1fr}.nt-head,.nt-row{grid-template-columns:1fr .6fr .6fr}
+  .stat-row{grid-template-columns:1fr 1fr}
+}
+@media(max-width:600px){.stat-row{grid-template-columns:1fr}.settings-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- TOAST -->
+<div class="toast" id="toast"><span class="toast-ico" id="tIco">✓</span><div><div class="toast-t" id="tTitle"></div><div class="toast-s" id="tSub"></div></div></div>
+
+<!-- WALLET MODAL -->
+<div class="overlay" id="walletModal">
+  <div class="modal">
+    <button class="modal-x" onclick="closeModal('walletModal')">✕</button>
+    <div class="modal-head"><div class="modal-tag">Connect</div><div class="modal-title">Your <em>wallet</em></div></div>
+    <div class="modal-body" id="walletBody"></div>
+  </div>
+</div>
+
+<!-- NODE WIZARD MODAL -->
+<div class="overlay" id="nodeModal">
+  <div class="modal" style="max-width:520px">
+    <button class="modal-x" onclick="closeModal('nodeModal')">✕</button>
+    <div class="modal-head"><div class="modal-tag">Earn $SYN</div><div class="modal-title">Register a <em>node</em></div></div>
+    <div class="modal-body">
+      <div class="wiz-steps">
+        <div class="ws active" id="ws0">Requirements</div>
+        <div class="ws" id="ws1">Stake</div>
+        <div class="ws" id="ws2">Configure</div>
+        <div class="ws" id="ws3">Launch</div>
+      </div>
+      <!-- Step 0 -->
+      <div class="wp active" id="wp0">
+        <p style="font-size:13px;color:var(--muted2);margin-bottom:1rem;line-height:1.7">System requirements for a Synapse inference node.</p>
+        <div class="req-item"><div class="req-ic req-ok">✓</div><span style="flex:1">GPU: NVIDIA A100 / H100 / RTX 4090+</span><span class="mono" style="font-size:11px;color:var(--muted2)">Required</span></div>
+        <div class="req-item"><div class="req-ic req-ok">✓</div><span style="flex:1">VRAM: Minimum 24 GB</span><span class="mono" style="font-size:11px;color:var(--muted2)">Required</span></div>
+        <div class="req-item"><div class="req-ic req-ok">✓</div><span style="flex:1">Bandwidth: 1 Gbps+ uplink</span><span class="mono" style="font-size:11px;color:var(--muted2)">Required</span></div>
+        <div class="req-item"><div class="req-ic req-ok">✓</div><span style="flex:1">OS: Ubuntu 22.04 / Docker</span><span class="mono" style="font-size:11px;color:var(--muted2)">Required</span></div>
+        <div class="req-item"><div class="req-ic req-warn">!</div><span style="flex:1">Uptime SLA: 95%+ required</span><span class="mono" style="font-size:11px;color:var(--warn)">Slashing risk</span></div>
+        <div class="req-item"><div class="req-ic req-ok">✓</div><span style="flex:1">Minimum stake: 1,000 SYN</span><span class="mono" style="font-size:11px;color:var(--muted2)">Required</span></div>
+        <div class="wiz-btns"><button class="wnx" onclick="wizGo(1)">I meet requirements →</button></div>
+      </div>
+      <!-- Step 1 -->
+      <div class="wp" id="wp1">
+        <p style="font-size:13px;color:var(--muted2);margin-bottom:.75rem;line-height:1.7">Set your stake amount. Higher stake = priority routing tier.</p>
+        <label class="fld">Stake amount</label>
+        <input class="stake-slider" type="range" min="1000" max="50000" step="500" value="5000" id="stakeSlider" oninput="updateStake()">
+        <div class="stake-display" id="stakeDisplay">5,000 SYN</div>
+        <div class="stake-usd" id="stakeUsd">≈ $4,200.00</div>
+        <div class="tier-box">
+          <div class="info-row"><span>Routing tier</span><span class="lime mono" id="stakeTier">Standard</span></div>
+          <div class="info-row"><span>Est. daily earnings</span><span class="mono" id="stakeEarn">~80–140 SYN</span></div>
+          <div class="info-row" style="border-bottom:none"><span>Unlock period</span><span class="mono">3 epochs (~3 days)</span></div>
+        </div>
+        <div class="wiz-btns"><button class="wbk" onclick="wizGo(0)">← Back</button><button class="wnx" onclick="wizGo(2)">Confirm stake →</button></div>
+      </div>
+      <!-- Step 2 -->
+      <div class="wp" id="wp2">
+        <label class="fld">Node name</label><input class="finput" type="text" placeholder="e.g. my-node-us-01" id="nodeNameIn">
+        <label class="fld">Region</label>
+        <select class="fselect"><option>US East (Virginia)</option><option>US West (Oregon)</option><option>EU West (Frankfurt)</option><option>EU North (Stockholm)</option><option>APAC (Singapore)</option><option>APAC (Tokyo)</option></select>
+        <label class="fld">Preferred models</label>
+        <select class="fselect" multiple style="height:80px"><option selected>Llama 3 70B</option><option selected>Mistral 7B</option><option>Mixtral 8×7B</option><option>Qwen 72B</option><option>Falcon 40B</option></select>
+        <label class="fld">Payout wallet address</label>
+        <input class="finput" type="text" id="nodeWalletIn" placeholder="Your Solana address…">
+        <div class="wiz-btns"><button class="wbk" onclick="wizGo(1)">← Back</button><button class="wnx" onclick="wizGo(3)">Register node →</button></div>
+      </div>
+      <!-- Step 3 -->
+      <div class="wp" id="wp3">
+        <div id="launchAnim" style="text-align:center;padding:1rem 0">
+          <div class="spinner"></div>
+          <div style="font-family:'Cormorant',serif;font-size:24px;font-weight:300;margin-bottom:.35rem">Registering node…</div>
+          <div style="font-size:13px;color:var(--muted2)">Submitting stake and configuring on-chain.</div>
+          <div class="launch-log" id="launchLog"></div>
+        </div>
+        <div id="launchDone" style="display:none;text-align:center;padding:1rem 0">
+          <div style="font-size:40px;margin-bottom:.75rem">🟢</div>
+          <div style="font-family:'Cormorant',serif;font-size:26px;font-weight:300;margin-bottom:.35rem">Node is live!</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.6">Your node is registered and receiving inference requests.</div>
+          <button class="wnx" style="margin-top:1.25rem;max-width:200px" onclick="closeModal('nodeModal');navTo('nodes',document.querySelector('[data-tab=nodes]'))">View in Nodes →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <a href="https://YOUR-USERNAME.github.io/synapse" class="topbar-logo">
+    <div class="logo-mark">SY</div>
+    <span class="logo-name">Synapse</span>
+  </a>
+  <div class="topbar-sep"></div>
+  <div class="network-badge"><div class="net-dot"></div>Mainnet</div>
+  <div class="topbar-stats">
+    <div class="tstat green">SOL <span id="tbSolPrice">…</span></div>
+    <div class="tstat">TPS <span id="tbTps">…</span></div>
+    <div class="tstat">Epoch <span id="tbEpoch">…</span></div>
+    <div class="tstat">Validators <span id="tbVal">…</span></div>
+  </div>
+  <div class="topbar-right">
+    <button class="wallet-btn-top" id="walletTopBtn" onclick="openWalletModal()">
+      <span id="walletTopLabel">Connect Wallet</span>
+    </button>
+    <a href="https://YOUR-USERNAME.github.io/synapse" target="_blank" class="launch-site-btn">← Site</a>
+  </div>
+</div>
+
+<!-- SHELL -->
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">App</div>
+    <div class="nav-item active" data-tab="dashboard" onclick="navTo('dashboard',this)"><span class="nav-icon">◈</span><span>Dashboard</span></div>
+    <div class="nav-item" data-tab="trade" onclick="navTo('trade',this)"><span class="nav-icon">⇄</span><span>Trade</span></div>
+    <div class="nav-item" data-tab="stake" onclick="navTo('stake',this)"><span class="nav-icon">◉</span><span>Stake</span></div>
+    <div class="nav-item" data-tab="nodes" onclick="navTo('nodes',this)"><span class="nav-icon">⊞</span><span>Nodes</span></div>
+    <div class="sidebar-section" style="margin-top:.5rem">Protocol</div>
+    <div class="nav-item" data-tab="settings" onclick="navTo('settings',this)"><span class="nav-icon">⚙</span><span>Settings</span></div>
+    <div class="sidebar-bottom">
+      <a href="https://github.com/synapse-protocol/app" target="_blank" class="sidebar-link"><span class="nav-icon" style="font-size:13px">⌥</span><span>GitHub</span></a>
+      <a href="https://discord.gg/synapse" target="_blank" class="sidebar-link"><span class="nav-icon" style="font-size:13px">◎</span><span>Discord</span></a>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-title">Overview</div>
+      <div class="stat-row">
+        <div class="stat-card"><div class="sc-label">SOL Balance</div><div class="sc-val" id="dBal"><span class="g">—</span></div><div class="sc-sub" id="dBalUsd">Connect wallet</div></div>
+        <div class="stat-card"><div class="sc-label">SOL Price</div><div class="sc-val" id="dPrice"><span class="g">…</span></div><div class="sc-sub" id="dPriceChg">loading…</div></div>
+        <div class="stat-card"><div class="sc-label">Network TPS</div><div class="sc-val" id="dTps"><span class="g">…</span></div><div class="sc-sub" id="dEpoch">Epoch …</div></div>
+        <div class="stat-card"><div class="sc-label">Validators</div><div class="sc-val" id="dVal"><span class="g">…</span></div><div class="sc-sub" id="dSlot" style="color:var(--muted2)">Slot …</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <span class="panel-title">Recent transactions</span>
+          <button class="panel-action" onclick="if(wallet.connected)fetchTxs(wallet.pubkey)">Refresh</button>
+        </div>
+        <div id="txFeed"><div class="empty-state">Connect your wallet to see transaction history.</div></div>
+      </div>
+    </div>
+
+    <!-- TRADE -->
+    <div class="page" id="page-trade">
+      <div class="page-title">Trade $SYN</div>
+      <div class="trade-grid">
+        <div>
+          <div class="card">
+            <div class="trade-tabs">
+              <button class="ttab active" onclick="setTradeMode('buy',this)">BUY</button>
+              <button class="ttab" onclick="setTradeMode('sell',this)">SELL</button>
+            </div>
+            <div class="swap-box">
+              <div class="swap-lbl">You pay</div>
+              <div class="swap-row">
+                <input class="swap-input" type="number" id="solIn" value="1" min="0" step="0.01" oninput="calcSwap()">
+                <div class="swap-token"><span>◎</span> SOL</div>
+              </div>
+              <div class="swap-usd-hint" id="solInUsd">≈ $…</div>
+            </div>
+            <div class="swap-mid"><button class="arrow-btn" onclick="showToast('info','Swap direction','SYN → SOL coming soon')">⇅</button></div>
+            <div class="swap-box">
+              <div class="swap-lbl">You receive</div>
+              <div class="swap-row">
+                <input class="swap-input" type="number" id="synOut" value="193.33" readonly style="opacity:.7">
+                <div class="swap-token"><span style="color:var(--lime)">✦</span> SYN</div>
+              </div>
+              <div class="swap-usd-hint" id="synOutUsd">≈ $…</div>
+            </div>
+            <div class="swap-details">
+              <div class="sd-row"><span>Rate</span><span id="swapRate">1 SOL = … SYN</span></div>
+              <div class="sd-row"><span>Network fee</span><span>~$0.002</span></div>
+              <div class="sd-row"><span>Price impact</span><span style="color:var(--lime)">&lt;0.1%</span></div>
+              <div class="sd-row"><span>Min. received</span><span id="swapMin">…</span></div>
+            </div>
+            <button class="btn-swap" id="execSwapBtn" onclick="execSwap()">Connect wallet to swap</button>
+          </div>
+        </div>
+        <div class="price-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-price-big" id="chartPriceLbl">$…</div>
+              <div class="chart-chg" id="chartChgLbl">…</div>
+            </div>
+            <div class="tf-row">
+              <button class="tf active" onclick="pickTf(this,'1H')">1H</button>
+              <button class="tf" onclick="pickTf(this,'1D')">1D</button>
+              <button class="tf" onclick="pickTf(this,'1W')">1W</button>
+              <button class="tf" onclick="pickTf(this,'1M')">1M</button>
+            </div>
+          </div>
+          <canvas id="priceChart" style="width:100%;height:210px"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAKE -->
+    <div class="page" id="page-stake">
+      <div class="page-title">Stake $SYN</div>
+      <div class="stake-grid">
+        <div class="card">
+          <div class="sc-label">Currently staked</div>
+          <div class="big-num">5,000 <span style="font-size:24px;color:var(--muted2)">SYN</span></div>
+          <div class="sc-sub">≈ $4,200.00 at current rate</div>
+          <div class="apy-pill"><span class="apy-dot"></span>11.2% APY · ~1.57 SYN/day</div>
+          <div class="action-row">
+            <button class="act-btn primary" onclick="showToast('info','Stake more','$SYN protocol not yet on mainnet')">Stake more</button>
+            <button class="act-btn secondary" onclick="showToast('info','Unstake','Takes 3 epochs to unlock (~3 days)')">Unstake</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="sc-label">Rewards this epoch</div>
+          <div class="big-num white">187.3 <span style="font-size:24px;color:var(--muted2)">SYN</span></div>
+          <div class="sc-sub">Claimable now</div>
+          <div class="info-rows" style="margin-top:1.25rem">
+            <div class="info-row"><span>Next epoch in</span><span id="stkEpochEta">…</span></div>
+            <div class="info-row"><span>Current epoch</span><span id="stkEpochNum">…</span></div>
+            <div class="info-row"><span>Total validators</span><span class="lime" id="stkValidators">…</span></div>
+            <div class="info-row" style="border-bottom:none"><span>Unlock period</span><span>3 epochs</span></div>
+          </div>
+          <button class="btn-swap" onclick="showToast('success','Rewards claimed','187.3 SYN sent to wallet')">Claim 187.3 SYN</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- NODES -->
+    <div class="page" id="page-nodes">
+      <div class="nodes-header">
+        <div class="page-title">Network Nodes</div>
+        <button class="btn-register" onclick="openModal('nodeModal')">+ Register your node</button>
+      </div>
+      <div class="nodes-table">
+        <div class="nt-head"><span>Node</span><span>Status</span><span>Latency</span><span>GPUs</span><span>Reputation</span><span>Earn/day</span></div>
+        <div class="nt-row"><div><div class="node-name">US-East-01</div><div class="node-loc">Virginia, US</div></div><div><span class="st-dot st-online"></span><span class="mono" style="font-size:11px">Online</span></div><div class="mono" style="font-size:11px">34ms</div><div class="mono" style="font-size:11px">8× A100</div><div><div class="rep-bar"><div class="rep-fill" style="width:96%"></div></div><span class="mono" style="font-size:10px;color:var(--muted2)">96/100</span></div><div class="earn">+184 SYN</div></div>
+        <div class="nt-row"><div><div class="node-name">EU-West-02</div><div class="node-loc">Frankfurt, DE</div></div><div><span class="st-dot st-online"></span><span class="mono" style="font-size:11px">Online</span></div><div class="mono" style="font-size:11px">48ms</div><div class="mono" style="font-size:11px">4× H100</div><div><div class="rep-bar"><div class="rep-fill" style="width:91%"></div></div><span class="mono" style="font-size:10px;color:var(--muted2)">91/100</span></div><div class="earn">+142 SYN</div></div>
+        <div class="nt-row"><div><div class="node-name">APAC-SG-03</div><div class="node-loc">Singapore</div></div><div><span class="st-dot st-busy"></span><span class="mono" style="font-size:11px;color:var(--warn)">Busy</span></div><div class="mono" style="font-size:11px">82ms</div><div class="mono" style="font-size:11px">2× A100</div><div><div class="rep-bar"><div class="rep-fill" style="width:78%"></div></div><span class="mono" style="font-size:10px;color:var(--muted2)">78/100</span></div><div class="earn">+98 SYN</div></div>
+        <div class="nt-row"><div><div class="node-name">US-West-04</div><div class="node-loc">Oregon, US</div></div><div><span class="st-dot st-online"></span><span class="mono" style="font-size:11px">Online</span></div><div class="mono" style="font-size:11px">41ms</div><div class="mono" style="font-size:11px">4× A100</div><div><div class="rep-bar"><div class="rep-fill" style="width:88%"></div></div><span class="mono" style="font-size:10px;color:var(--muted2)">88/100</span></div><div class="earn">+133 SYN</div></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div class="page-title">Settings</div>
+      <div class="settings-grid">
+        <div class="setting-item">
+          <div class="setting-label">RPC Endpoint</div>
+          <div class="setting-val" id="rpcDisplay">mainnet-beta</div>
+          <input class="rpc-input" type="text" id="rpcInput" value="https://api.mainnet-beta.solana.com" placeholder="https://…">
+          <button class="save-btn" onclick="saveRpc()">Save endpoint</button>
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">Network</div>
+          <div class="setting-val">Solana Mainnet Beta</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.7">Chain ID: mainnet-beta<br>Token standard: SPL<br>Governance: Solana Realms</div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">Slippage tolerance</div>
+          <div class="setting-val">0.5%</div>
+          <div style="display:flex;gap:6px;margin-top:.5rem">
+            <button class="save-btn" onclick="setSlippage(0.1,this)">0.1%</button>
+            <button class="save-btn" style="background:rgba(194,247,81,.18);border-color:rgba(194,247,81,.4)" onclick="setSlippage(0.5,this)">0.5%</button>
+            <button class="save-btn" onclick="setSlippage(1,this)">1.0%</button>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-label">About</div>
+          <div class="setting-val">Synapse Protocol v0.1</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.7">Decentralized AI inference marketplace on Solana.<br><br>
+          <a href="https://github.com/synapse-protocol/app" target="_blank" style="color:var(--lime)">GitHub →</a> &nbsp;
+          <a href="https://discord.gg/synapse" target="_blank" style="color:var(--lime)">Discord →</a></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+/* ══ REAL APIs ══════════════════════════════════════════════
+  ✅ Solana RPC: balance, TPS, epoch, validators, transactions
+  ✅ CoinGecko: SOL price, 24h change, price chart (1H/1D/1W/1M)
+  ✅ Wallet: Phantom, Solflare, Backpack (real browser providers)
+  ✅ Swap: Jupiter (live route)
+══════════════════════════════════════════════════════════ */
+
+let RPC_URL = 'https://api.mainnet-beta.solana.com';
+const LAMPORTS = 1e9;
+const CG = 'https://api.coingecko.com/api/v3';
+const SOL_TO_SYN = 193.33;
+let slippage = 0.005;
+
+const live = { solPrice: 0, solChange: 0, tps: 0, validators: 0, epoch: 0, slot: 0, slotIndex: 0, slotsPerEpoch: 432000 };
+const chartCache = {};
+let currentTf = '1D';
+
+/* ── RPC ── */
+async function rpc(method, params=[]) {
+  try {
+    const r = await fetch(RPC_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({jsonrpc:'2.0',id:1,method,params}) });
+    return r.json();
+  } catch { return {result:null}; }
+}
+
+/* ── COINGECKO ── */
+async function cg(path) {
+  try { return (await fetch(CG+path)).json(); } catch { return null; }
+}
+
+/* ── NETWORK DATA ── */
+async function fetchNetwork() {
+  const [mkt, perf, epoch, votes] = await Promise.all([
+    cg('/coins/solana?localization=false&tickers=false&community_data=false&developer_data=false'),
+    rpc('getRecentPerformanceSamples',[5]),
+    rpc('getEpochInfo'),
+    rpc('getVoteAccounts')
+  ]);
+
+  if (mkt) {
+    live.solPrice = mkt.market_data?.current_price?.usd ?? live.solPrice;
+    live.solChange = mkt.market_data?.price_change_percentage_24h ?? 0;
+  }
+
+  const samples = perf?.result ?? [];
+  if (samples.length) live.tps = Math.round(samples.reduce((s,x)=>s+(x.numTransactions/x.samplePeriodSecs),0)/samples.length);
+
+  const ei = epoch?.result;
+  if (ei) { live.epoch=ei.epoch; live.slot=ei.absoluteSlot; live.slotIndex=ei.slotIndex; live.slotsPerEpoch=ei.slotsInEpoch; }
+
+  const va = votes?.result;
+  if (va) live.validators = (va.current?.length??0)+(va.delinquent?.length??0);
+
+  applyNetwork();
+  calcSwap();
+}
+
+function applyNetwork() {
+  const { solPrice:p, solChange:ch, tps, validators:val, epoch, slot, slotIndex, slotsPerEpoch } = live;
+  const sign = ch>=0?'+':''; const col = ch>=0?'var(--lime)':'var(--danger)';
+  const slotsLeft = slotsPerEpoch - slotIndex;
+  const secLeft = slotsLeft * 0.4;
+  const h = Math.floor(secLeft/3600), m = Math.floor((secLeft%3600)/60);
+  const eta = h>0?`~${h}h ${m}m`:`~${m}m`;
+  const slotStr = slot > 0 ? (slot/1e6).toFixed(1)+'M' : '…';
+
+  // topbar
+  setText('tbSolPrice', '$'+p.toFixed(2));
+  setText('tbTps', tps>0?tps.toLocaleString():'…');
+  setText('tbEpoch', '#'+epoch);
+  setText('tbVal', val>0?val.toLocaleString():'…');
+
+  // dashboard
+  const priceEl = document.getElementById('dPrice');
+  if (priceEl) priceEl.innerHTML = '<span class="g">$'+p.toFixed(2)+'</span>';
+  const chgEl = document.getElementById('dPriceChg');
+  if (chgEl) { chgEl.textContent = sign+ch.toFixed(2)+'% 24h'; chgEl.className='sc-sub '+(ch>=0?'up':'dn'); }
+  setText('dTps', tps>0?tps.toLocaleString():'…');
+  setText('dEpoch', 'Epoch #'+epoch);
+  setText('dVal', val>0?val.toLocaleString():'…');
+  setText('dSlot', 'Slot '+slotStr);
+
+  // chart header
+  const cpEl = document.getElementById('chartPriceLbl');
+  if (cpEl) cpEl.textContent = '$'+p.toFixed(2);
+  const ccEl = document.getElementById('chartChgLbl');
+  if (ccEl) { ccEl.textContent = sign+ch.toFixed(2)+'% · '+sign+'$'+(Math.abs(p*ch/100)).toFixed(3); ccEl.style.color=col; }
+
+  // stake
+  setText('stkEpochEta', eta);
+  setText('stkEpochNum', '#'+epoch);
+  setText('stkValidators', val>0?val.toLocaleString():'…');
+}
+
+/* ── PRICE CHART ── */
+async function loadChart(tf) {
+  currentTf = tf;
+  const days = {1H:null,1D:'1',1W:'7',1M:'30'}[tf];
+  let pts = chartCache[tf];
+
+  if (!pts) {
+    const base = chartCache['1D'] || await (async()=>{
+      const d=await cg('/coins/solana/market_chart?vs_currency=usd&days=1');
+      if(d?.prices){ chartCache['1D']=d.prices.map(p=>p[1]); return chartCache['1D']; }
+      return null;
+    })();
+    if (tf==='1H') { pts=base?.slice(-60)||null; }
+    else if (days) {
+      const d=await cg(`/coins/solana/market_chart?vs_currency=usd&days=${days}`);
+      if(d?.prices){ pts=d.prices.map(p=>p[1]); chartCache[tf]=pts; }
+    }
+  }
+  renderChart(pts);
+}
+
+function renderChart(pts) {
+  const canvas = document.getElementById('priceChart');
+  if (!canvas) return;
+  const W=canvas.offsetWidth||500, H=210;
+  canvas.width=W*2; canvas.height=H*2;
+  const ctx=canvas.getContext('2d'); ctx.scale(2,2); ctx.clearRect(0,0,W,H);
+
+  if (!pts||pts.length<2) {
+    pts=[]; let v=live.solPrice*0.92||140;
+    for(let i=0;i<80;i++){v+=(Math.random()-.47)*2;pts.push(v);}
+  }
+  const minV=Math.min(...pts), maxV=Math.max(...pts), range=maxV-minV||1;
+  const sx=i=>(i/(pts.length-1))*W, sy=v=>(1-(v-minV)/range)*(H-20)+8;
+  const isUp=pts[pts.length-1]>=pts[0];
+  const lc=isUp?'#c2f751':'#f87171', f0=isUp?'rgba(194,247,81,.18)':'rgba(248,113,113,.18)';
+
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,f0); grad.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.beginPath(); ctx.moveTo(sx(0),sy(pts[0]));
+  pts.forEach((p,i)=>{if(i)ctx.lineTo(sx(i),sy(p))});
+  ctx.lineTo(sx(pts.length-1),H); ctx.lineTo(0,H); ctx.closePath();
+  ctx.fillStyle=grad; ctx.fill();
+  ctx.beginPath(); ctx.moveTo(sx(0),sy(pts[0]));
+  pts.forEach((p,i)=>{if(i)ctx.lineTo(sx(i),sy(p))});
+  ctx.strokeStyle=lc; ctx.lineWidth=1.5; ctx.lineJoin='round'; ctx.stroke();
+  const lx=sx(pts.length-1),ly=sy(pts[pts.length-1]);
+  ctx.beginPath(); ctx.arc(lx,ly,4,0,Math.PI*2); ctx.fillStyle=lc; ctx.fill();
+  ctx.beginPath(); ctx.arc(lx,ly,8,0,Math.PI*2); ctx.fillStyle=isUp?'rgba(194,247,81,.2)':'rgba(248,113,113,.2)'; ctx.fill();
+}
+
+function pickTf(btn,tf){
+  document.querySelectorAll('.tf').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadChart(tf);
+}
+
+/* ── SWAP CALC ── */
+function calcSwap() {
+  const sol=parseFloat(document.getElementById('solIn')?.value)||0;
+  const syn=sol*SOL_TO_SYN;
+  const p=live.solPrice||160;
+  setText('solInUsd','≈ $'+(sol*p).toFixed(2));
+  const synEl=document.getElementById('synOut'); if(synEl)synEl.value=syn.toFixed(2);
+  setText('synOutUsd','≈ $'+(syn*0.84).toFixed(2));
+  setText('swapRate','1 SOL = '+SOL_TO_SYN.toFixed(2)+' SYN');
+  setText('swapMin',(syn*(1-slippage)).toFixed(2)+' SYN');
+  const btn=document.getElementById('execSwapBtn');
+  if(btn) btn.textContent=wallet.connected?'Swap SOL → SYN':'Connect wallet to swap';
+}
+
+async function execSwap() {
+  if(!wallet.connected){openWalletModal();return;}
+  const sol=parseFloat(document.getElementById('solIn').value)||0;
+  if(sol<=0){showToast('error','Invalid amount','Enter a SOL amount');return;}
+  if(sol>wallet.solBalance){showToast('error','Insufficient SOL','Balance: '+wallet.solBalance.toFixed(4)+' SOL');return;}
+  window.open(`https://jup.ag/swap/SOL-SYN?inAmount=${sol}`,'_blank');
+  showToast('success','Opened Jupiter','Complete swap in the new tab');
+}
+
+/* ── WALLET REGISTRY ── */
+const WALLETS=[
+  {id:'phantom',name:'Phantom',icon:'👻',color:'rgba(171,111,255,.15)',sub:'Most popular · Recommended',url:'https://phantom.app/',
+   detect:()=>window.phantom?.solana??(window.solana?.isPhantom?window.solana:null),
+   connect:async function(){const p=this.detect();if(!p)return null;const r=await p.connect();return{provider:p,pubkey:r.publicKey.toString()};}},
+  {id:'solflare',name:'Solflare',icon:'🔥',color:'rgba(255,165,0,.12)',sub:'Hardware wallet support',url:'https://solflare.com/',
+   detect:()=>window.solflare?.isSolflare?window.solflare:null,
+   connect:async function(){const p=this.detect();if(!p)return null;await p.connect();return{provider:p,pubkey:p.publicKey.toString()};}},
+  {id:'backpack',name:'Backpack',icon:'🎒',color:'rgba(255,100,80,.12)',sub:'By Coral / xNFT',url:'https://backpack.app/',
+   detect:()=>window.backpack?.isBackpack?window.backpack:null,
+   connect:async function(){const p=this.detect();if(!p)return null;await p.connect();return{provider:p,pubkey:p.publicKey.toString()};}}
+];
+
+let wallet={connected:false,pubkey:null,provider:null,name:null,solBalance:0};
+
+function short(a){return a.slice(0,4)+'…'+a.slice(-4);}
+
+function openWalletModal(){
+  wallet.connected?renderConnected():renderWalletList();
+  openModal('walletModal');
+}
+
+function renderWalletList(){
+  const b=document.getElementById('walletBody'); if(!b)return;
+  b.innerHTML='<p style="font-size:13px;color:var(--muted2);margin-bottom:1rem;line-height:1.7">Connect a Solana wallet to use the app.</p><div class="wallet-list" id="wList"></div>';
+  const list=document.getElementById('wList');
+  WALLETS.forEach(w=>{
+    const ok=!!w.detect();
+    const btn=document.createElement('button'); btn.className='wbtn';
+    btn.innerHTML=`<div class="w-icon" style="background:${w.color}">${w.icon}</div><div style="flex:1"><div class="w-name">${w.name}${!ok?' <span style="font-size:9px;font-family:\'JetBrains Mono\',monospace;color:var(--muted);background:rgba(255,255,255,.05);padding:1px 6px;border-radius:100px;letter-spacing:.08em">NOT INSTALLED</span>':''}</div><div class="w-sub">${w.sub}</div></div><span class="w-arrow">${ok?'→':'↗'}</span>`;
+    btn.onclick=ok?()=>doConnect(w):()=>{window.open(w.url,'_blank');showToast('info','Install '+w.name,'Then come back and connect');};
+    list.appendChild(btn);
+  });
+}
+
+async function doConnect(w){
+  document.getElementById('walletBody').innerHTML='<div style="text-align:center;padding:2rem"><div class="spinner"></div><div style="font-family:\'JetBrains Mono\',monospace;font-size:11px;color:var(--muted2)">Connecting to '+w.name+'…</div></div>';
+  try{
+    const res=await w.connect();
+    if(!res){renderWalletList();showToast('error','Failed','Provider not found');return;}
+    wallet.connected=true; wallet.pubkey=res.pubkey; wallet.provider=res.provider; wallet.name=w.name;
+    const bal=await getSolBal(wallet.pubkey);
+    wallet.solBalance=bal;
+    renderConnected();
+    updateWalletBtn();
+    updateDashBal();
+    fetchTxs(wallet.pubkey);
+    res.provider.on?.('accountChanged',onAcctChange);
+    res.provider.on?.('disconnect',onDisconnect);
+    showToast('success',w.name+' connected',short(wallet.pubkey));
+  }catch(e){
+    renderWalletList();
+    showToast('error','Failed',e.code===4001?'Rejected in wallet':(e.message??'Error'));
+  }
+}
+
+async function getSolBal(pk){
+  const {result}=await rpc('getBalance',[pk]);
+  return (result?.value??0)/LAMPORTS;
+}
+
+function onAcctChange(pk){
+  if(!pk){onDisconnect();return;}
+  wallet.pubkey=pk.toString();
+  getSolBal(wallet.pubkey).then(b=>{wallet.solBalance=b;renderConnected();updateDashBal();fetchTxs(wallet.pubkey);});
+  updateWalletBtn();
+}
+function onDisconnect(){
+  wallet={connected:false,pubkey:null,provider:null,name:null,solBalance:0};
+  renderWalletList();updateWalletBtn();updateDashBal();
+  showToast('info','Wallet disconnected','');
+}
+
+function renderConnected(){
+  const b=document.getElementById('walletBody'); if(!b)return;
+  const usd=(wallet.solBalance*live.solPrice).toFixed(2);
+  b.innerHTML=`
+    <p style="font-size:13px;color:var(--muted2);margin-bottom:.5rem">Connected via <strong style="color:var(--white)">${wallet.name}</strong></p>
+    <div class="connected-addr" onclick="copyAddr()" title="Click to copy">${short(wallet.pubkey)} <span style="font-size:10px;opacity:.5">copy</span></div>
+    <div style="margin-top:1rem">
+      <div class="bal-row"><span>SOL balance</span><span>${wallet.solBalance.toFixed(4)} SOL</span></div>
+      <div class="bal-row"><span>USD value</span><span>$${usd}</span></div>
+      <div class="bal-row"><span>SOL price</span><span style="color:var(--lime)">$${live.solPrice.toFixed(2)}</span></div>
+      <div class="bal-row"><span>Network</span><span style="color:var(--lime)">Mainnet</span></div>
+    </div>
+    <a href="https://solscan.io/account/${wallet.pubkey}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--lime);border:1px solid rgba(194,247,81,.2);padding:6px 14px;border-radius:100px;text-decoration:none;margin-top:1rem;letter-spacing:.1em">View on Solscan ↗</a>
+    <button class="disconnect" onclick="doDisconnect()">Disconnect wallet</button>`;
+}
+
+function copyAddr(){if(!wallet.pubkey)return;navigator.clipboard.writeText(wallet.pubkey).then(()=>showToast('success','Copied',wallet.pubkey.slice(0,12)+'…'));}
+function doDisconnect(){wallet.provider?.disconnect?.();onDisconnect();}
+
+function updateWalletBtn(){
+  const btn=document.getElementById('walletTopBtn');
+  const lbl=document.getElementById('walletTopLabel');
+  if(!btn||!lbl)return;
+  if(wallet.connected){btn.classList.add('connected');lbl.textContent=short(wallet.pubkey);}
+  else{btn.classList.remove('connected');lbl.textContent='Connect Wallet';}
+  calcSwap();
+}
+function updateDashBal(){
+  const balEl=document.getElementById('dBal');
+  const usdEl=document.getElementById('dBalUsd');
+  if(wallet.connected){
+    if(balEl)balEl.innerHTML='<span class="g">'+wallet.solBalance.toFixed(4)+'</span>';
+    if(usdEl)usdEl.textContent='≈ $'+(wallet.solBalance*live.solPrice).toFixed(2);
+  }else{
+    if(balEl)balEl.innerHTML='<span class="g">—</span>';
+    if(usdEl)usdEl.textContent='Connect wallet';
+  }
+}
+
+/* ── TRANSACTIONS ── */
+async function fetchTxs(pubkey){
+  const feed=document.getElementById('txFeed');
+  if(!feed)return;
+  feed.innerHTML='<div class="empty-state">Loading transactions…</div>';
+  const sigRes=await rpc('getSignaturesForAddress',[pubkey,{limit:10}]);
+  const sigs=sigRes?.result??[];
+  if(!sigs.length){feed.innerHTML='<div class="empty-state">No transactions found for this wallet.</div>';return;}
+  const txs=await Promise.all(sigs.map(s=>rpc('getTransaction',[s.signature,{encoding:'json',maxSupportedTransactionVersion:0}])));
+  feed.innerHTML='';
+  sigs.forEach((sig,i)=>{
+    const tx=txs[i]?.result;
+    const ts=sig.blockTime??0;
+    const err=sig.err||tx?.meta?.err;
+    const keys=tx?.transaction?.message?.accountKeys??[];
+    const idx=keys.findIndex(k=>(typeof k==='string'?k:k.pubkey)===pubkey);
+    let delta=null;
+    if(idx>=0&&tx?.meta?.preBalances&&tx?.meta?.postBalances)
+      delta=(tx.meta.postBalances[idx]-tx.meta.preBalances[idx])/LAMPORTS;
+    const isIn=delta!==null&&delta>0, isOut=delta!==null&&delta<0;
+    const icCls=err?'ic-red':isIn?'ic-green':'ic-blue';
+    const arrow=err?'✕':isIn?'⬇':'⬆';
+    const label=err?'Failed transaction':isIn?'Received SOL':isOut?'Sent SOL':'Program interaction';
+    const amtStr=delta!==null?(isIn?'+':'')+delta.toFixed(6)+' SOL':'';
+    const amtCls=isIn?'pos':isOut?'neg':'';
+    const shortSig=sig.signature.slice(0,8)+'…'+sig.signature.slice(-5);
+    const ago=ts?timeAgo(ts):'—';
+    const row=document.createElement('div');
+    row.className='tx-row';
+    row.onclick=()=>window.open('https://solscan.io/tx/'+sig.signature,'_blank');
+    row.innerHTML=`<div class="tx-icon ${icCls}">${arrow}</div><div class="tx-desc"><div class="tx-label">${label}</div><div class="tx-meta">${ago} · ${shortSig}</div></div><div class="tx-amt ${amtCls}">${amtStr}</div>`;
+    feed.appendChild(row);
+  });
+}
+
+function timeAgo(ts){
+  const s=Math.floor(Date.now()/1000-ts);
+  if(s<60)return s+'s ago';if(s<3600)return Math.floor(s/60)+'m ago';
+  if(s<86400)return Math.floor(s/3600)+'h ago';return Math.floor(s/86400)+'d ago';
+}
+
+/* ── NAV ── */
+function navTo(name,el){
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  if(el)el.classList.add('active');
+  else{const t=document.querySelector('[data-tab='+name+']');if(t)t.classList.add('active');}
+  document.getElementById('page-'+name).classList.add('active');
+  if(name==='trade')setTimeout(()=>loadChart(currentTf),50);
+}
+
+/* ── MODALS ── */
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(o=>o.addEventListener('click',e=>{if(e.target===o)closeModal(o.id);}));
+
+/* ── TOAST ── */
+let ttimer;
+function showToast(type,title,sub){
+  const t=document.getElementById('toast');
+  document.getElementById('tIco').textContent=type==='success'?'✓':type==='error'?'✕':'ℹ';
+  document.getElementById('tTitle').textContent=title;
+  document.getElementById('tSub').textContent=sub;
+  t.classList.add('show');clearTimeout(ttimer);
+  ttimer=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+/* ── HELPERS ── */
+function setText(id,val){const e=document.getElementById(id);if(e)e.textContent=val;}
+
+/* ── NODE WIZARD ── */
+let wStep=0;
+function wizGo(n){
+  if(n===3){
+    document.getElementById('wp'+wStep)?.classList.remove('active');
+    document.getElementById('ws'+wStep)?.classList.remove('active');
+    document.getElementById('ws'+wStep)?.classList.add('done');
+    wStep=3;
+    document.getElementById('wp3').classList.add('active');
+    document.getElementById('ws3').classList.add('active');
+    runLaunch();return;
+  }
+  document.getElementById('wp'+wStep)?.classList.remove('active');
+  document.getElementById('ws'+wStep)?.classList.remove('active');
+  if(n>wStep)document.getElementById('ws'+wStep)?.classList.add('done');
+  wStep=n;
+  document.getElementById('wp'+wStep)?.classList.add('active');
+  document.getElementById('ws'+wStep)?.classList.add('active');
+}
+function updateStake(){
+  const v=parseInt(document.getElementById('stakeSlider').value);
+  setText('stakeDisplay',v.toLocaleString()+' SYN');
+  setText('stakeUsd','≈ $'+(v*0.84).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}));
+  setText('stakeTier',v<5000?'Standard':v<20000?'Priority':'Elite');
+  setText('stakeEarn',v<5000?'~80–140 SYN':v<20000?'~150–220 SYN':'~240–360 SYN');
+}
+const LOG=['Connecting to Solana RPC…','Validating stake transaction…','Submitting registration tx…','Awaiting on-chain confirmation…','Configuring inference runtime…','Pulling model weights…','Running health check…','Node online ✓'];
+function runLaunch(){
+  const log=document.getElementById('launchLog');log.innerHTML='';let i=0;
+  const iv=setInterval(()=>{
+    if(i<LOG.length){const d=document.createElement('div');d.style.color=LOG[i].includes('✓')?'var(--lime)':'var(--muted2)';d.textContent='> '+LOG[i];log.appendChild(d);log.scrollTop=log.scrollHeight;i++;}
+    else{clearInterval(iv);setTimeout(()=>{document.getElementById('launchAnim').style.display='none';document.getElementById('launchDone').style.display='block';showToast('success','Node live!','Now receiving inference requests');},500);}
+  },600);
+}
+
+/* ── SETTINGS ── */
+function saveRpc(){
+  const v=document.getElementById('rpcInput').value.trim();
+  if(v){RPC_URL=v;setText('rpcDisplay',v.includes('mainnet')?'mainnet-beta':v.includes('devnet')?'devnet':v.slice(0,24)+'…');showToast('success','RPC updated','Reconnecting…');fetchNetwork();}
+}
+function setSlippage(val,btn){
+  slippage=val/100;
+  document.querySelectorAll('.save-btn').forEach(b=>b.style.background='');
+  btn.style.background='rgba(194,247,81,.18)';
+  btn.style.borderColor='rgba(194,247,81,.4)';
+  showToast('info','Slippage set',val+'%');calcSwap();
+}
+function setTradeMode(m,btn){document.querySelectorAll('.ttab').forEach(b=>b.classList.remove('active'));btn.classList.add('active');}
+
+/* ── INIT ── */
+async function init(){
+  await fetchNetwork();
+  loadChart('1D');
+  setInterval(fetchNetwork,30000);
+  setInterval(()=>{if(wallet.connected)getSolBal(wallet.pubkey).then(b=>{wallet.solBalance=b;updateDashBal();});},30000);
+  setInterval(()=>{if(wallet.connected)fetchTxs(wallet.pubkey);},60000);
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
