@@ -1,136 +1,111 @@
 /**
- * Wallet connect modal
+ * Solana RPC API
+ * Wraps JSON-RPC calls to the configured endpoint
  */
 
-import { detectInstalledWallets, connectWallet } from '../api/wallet.js'
-import { openModal, closeModal } from './modal.js'
-import { showToast } from './toast.js'
+export let RPC_URL = 'https://api.mainnet-beta.solana.com'
+export const LAMPORTS_PER_SOL = 1_000_000_000
 
-let currentSession = null
-let onConnectCallback = null
-let onDisconnectCallback = null
+export function setRpcUrl(url) {
+  RPC_URL = url
+}
+
+async function call(method, params = []) {
+  try {
+    const res = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    })
+    return res.json()
+  } catch (err) {
+    console.error(`RPC error [${method}]:`, err)
+    return { result: null }
+  }
+}
 
 /**
- * Register callbacks for wallet events
- * @param {{ onConnect: Function, onDisconnect: Function }}
+ * Get SOL balance for a public key
+ * @param {string} pubkey
+ * @returns {Promise<number>} balance in SOL
  */
-export function initWalletModal({ onConnect, onDisconnect }) {
-  onConnectCallback = onConnect
-  onDisconnectCallback = onDisconnect
+export async function getBalance(pubkey) {
+  const { result } = await call('getBalance', [pubkey])
+  return (result?.value ?? 0) / LAMPORTS_PER_SOL
 }
 
-export function openWalletModal() {
-  if (currentSession?.connected) {
-    renderConnected()
-  } else {
-    renderWalletList()
+/**
+ * Get current epoch info: epoch, slot, slotIndex, slotsInEpoch
+ * @returns {Promise<object>}
+ */
+export async function getEpochInfo() {
+  const { result } = await call('getEpochInfo')
+  return result ?? {}
+}
+
+/**
+ * Get recent performance samples to compute TPS
+ * @param {number} limit number of samples (default 5)
+ * @returns {Promise<number>} transactions per second
+ */
+export async function getNetworkTps(limit = 5) {
+  const { result } = await call('getRecentPerformanceSamples', [limit])
+  const samples = result ?? []
+  if (!samples.length) return 0
+  const avg = samples.reduce((s, x) => s + x.numTransactions / x.samplePeriodSecs, 0) / samples.length
+  return Math.round(avg)
+}
+
+/**
+ * Get total validator count (current + delinquent)
+ * @returns {Promise<number>}
+ */
+export async function getValidatorCount() {
+  const { result } = await call('getVoteAccounts')
+  if (!result) return 0
+  return (result.current?.length ?? 0) + (result.delinquent?.length ?? 0)
+}
+
+/**
+ * Get recent transaction signatures for an address
+ * @param {string} pubkey
+ * @param {number} limit
+ * @returns {Promise<Array>}
+ */
+export async function getSignatures(pubkey, limit = 10) {
+  const { result } = await call('getSignaturesForAddress', [pubkey, { limit }])
+  return result ?? []
+}
+
+/**
+ * Get a full transaction by signature
+ * @param {string} signature
+ * @returns {Promise<object|null>}
+ */
+export async function getTransaction(signature) {
+  const { result } = await call('getTransaction', [
+    signature,
+    { encoding: 'json', maxSupportedTransactionVersion: 0 }
+  ])
+  return result
+}
+
+/**
+ * Fetch all network stats in one parallel call
+ * @returns {Promise<{tps, validators, epoch, slot, slotIndex, slotsPerEpoch}>}
+ */
+export async function getNetworkStats() {
+  const [tps, epochInfo, validators] = await Promise.all([
+    getNetworkTps(),
+    getEpochInfo(),
+    getValidatorCount()
+  ])
+  return {
+    tps,
+    validators,
+    epoch: epochInfo.epoch ?? 0,
+    slot: epochInfo.absoluteSlot ?? 0,
+    slotIndex: epochInfo.slotIndex ?? 0,
+    slotsPerEpoch: epochInfo.slotsInEpoch ?? 432000
   }
-  openModal('wallet-modal')
-}
-
-export function getSession() {
-  return currentSession
-}
-
-function renderWalletList() {
-  const body = document.getElementById('wallet-body')
-  if (!body) return
-  const wallets = detectInstalledWallets()
-
-  body.innerHTML = `
-    <p class="modal-desc">Connect a Solana wallet to use the app.</p>
-    <div class="wallet-list" id="wallet-list"></div>`
-
-  const list = document.getElementById('wallet-list')
-  wallets.forEach(w => {
-    const btn = document.createElement('button')
-    btn.className = 'wallet-btn'
-    btn.innerHTML = `
-      <div class="wallet-icon" style="background:${w.color}">${w.icon}</div>
-      <div class="wallet-info">
-        <div class="wallet-name">${w.name}
-          ${!w.installed ? '<span class="badge-not-installed">NOT INSTALLED</span>' : ''}
-        </div>
-        <div class="wallet-desc">${w.description}</div>
-      </div>
-      <span class="wallet-arrow">${w.installed ? '→' : '↗'}</span>`
-
-    btn.addEventListener('click', () => {
-      if (w.installed) {
-        attemptConnect(w.id)
-      } else {
-        window.open(w.installUrl, '_blank', 'noopener,noreferrer')
-        showToast('info', `Install ${w.name}`, 'Refresh the page after installing')
-      }
-    })
-    list.appendChild(btn)
-  })
-}
-
-async function attemptConnect(walletId) {
-  const body = document.getElementById('wallet-body')
-  if (!body) return
-  const name = walletId.charAt(0).toUpperCase() + walletId.slice(1)
-  body.innerHTML = `
-    <div class="wallet-connecting">
-      <div class="spinner"></div>
-      <p>Connecting to ${name}…</p>
-    </div>`
-
-  try {
-    const session = await connectWallet(walletId)
-    currentSession = session
-    session.onAccountChange(pk => {
-      if (!pk) { handleDisconnect(); return }
-      session.pubkey = pk.toString()
-      session.refreshBalance().then(() => {
-        renderConnected()
-        onConnectCallback?.(session)
-      })
-    })
-    session.onDisconnect(handleDisconnect)
-    renderConnected()
-    onConnectCallback?.(session)
-    showToast('success', `${session.name} connected`, session.shortAddress)
-  } catch (err) {
-    renderWalletList()
-    showToast('error', 'Connection failed', err.code === 4001 ? 'Rejected in wallet' : err.message)
-  }
-}
-
-function renderConnected() {
-  const s = currentSession
-  if (!s) return
-  const body = document.getElementById('wallet-body')
-  if (!body) return
-  body.innerHTML = `
-    <p class="modal-desc">Connected via <strong>${s.name}</strong></p>
-    <div class="wallet-address" id="wallet-address-copy" title="Click to copy">
-      ${s.shortAddress} <span class="copy-hint">copy</span>
-    </div>
-    <div class="balance-list">
-      <div class="balance-row"><span>SOL balance</span><span>${s.solBalance.toFixed(4)} SOL</span></div>
-      <div class="balance-row"><span>Network</span><span class="text-lime">Mainnet</span></div>
-    </div>
-    <a href="${s.solscanUrl}" target="_blank" rel="noopener" class="solscan-link">
-      View on Solscan ↗
-    </a>
-    <button class="btn-disconnect" id="btn-disconnect">Disconnect wallet</button>`
-
-  document.getElementById('wallet-address-copy')?.addEventListener('click', () => {
-    navigator.clipboard.writeText(s.pubkey).then(() =>
-      showToast('success', 'Address copied', s.pubkey.slice(0, 12) + '…')
-    )
-  })
-  document.getElementById('btn-disconnect')?.addEventListener('click', () => {
-    s.disconnect()
-    handleDisconnect()
-    closeModal('wallet-modal')
-  })
-}
-
-function handleDisconnect() {
-  currentSession = null
-  onDisconnectCallback?.()
-  showToast('info', 'Wallet disconnected', '')
 }

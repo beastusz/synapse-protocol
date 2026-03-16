@@ -2,6 +2,8 @@
 
 Decentralized AI inference marketplace on Solana. This is the **app utility** — a browser-based dashboard for interacting with the Synapse Protocol network.
 
+🌐 **Marketing site:** [synapse-protocol.io](https://beastusz.github.io/synapse) &nbsp;|&nbsp; **This repo:** the runnable utility app
+
 ## Features
 
 | Feature | Status | Source |
@@ -20,7 +22,7 @@ Decentralized AI inference marketplace on Solana. This is the **app utility** �
 ## Getting started
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/synapse-protocol.git
+git clone https://github.com/beastusz/synapse-protocol.git
 cd synapse-protocol
 npm install
 npm run dev
