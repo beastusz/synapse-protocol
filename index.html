@@ -1,183 +1,383 @@
-/**
- * Solana wallet adapter
- * Supports Phantom, Solflare, and Backpack via their browser injection APIs.
- * No external dependencies — uses the wallet providers injected into window.
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Synapse — Decentralized AI Compute</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/styles/app.css">
+  <link rel="icon" href="/public/favicon.svg" type="image/svg+xml">
+</head>
+<body>
 
-import { getBalance, getSignatures, getTransaction, LAMPORTS_PER_SOL } from './rpc.js'
+  <!-- TOAST (mounted by JS) -->
 
-export const SUPPORTED_WALLETS = [
-  {
-    id: 'phantom',
-    name: 'Phantom',
-    icon: '👻',
-    color: 'rgba(171,111,255,.15)',
-    description: 'Most popular Solana wallet',
-    installUrl: 'https://phantom.app/',
-    detect() {
-      return window.phantom?.solana ?? (window.solana?.isPhantom ? window.solana : null)
-    },
-    async connect() {
-      const provider = this.detect()
-      if (!provider) throw new Error('Phantom not installed')
-      const res = await provider.connect()
-      return { provider, pubkey: res.publicKey.toString() }
-    }
-  },
-  {
-    id: 'solflare',
-    name: 'Solflare',
-    icon: '🔥',
-    color: 'rgba(255,165,0,.12)',
-    description: 'Browser & hardware wallet',
-    installUrl: 'https://solflare.com/',
-    detect() {
-      return window.solflare?.isSolflare ? window.solflare : null
-    },
-    async connect() {
-      const provider = this.detect()
-      if (!provider) throw new Error('Solflare not installed')
-      await provider.connect()
-      return { provider, pubkey: provider.publicKey.toString() }
-    }
-  },
-  {
-    id: 'backpack',
-    name: 'Backpack',
-    icon: '🎒',
-    color: 'rgba(255,100,80,.12)',
-    description: 'By Coral / xNFT',
-    installUrl: 'https://backpack.app/',
-    detect() {
-      return window.backpack?.isBackpack ? window.backpack : null
-    },
-    async connect() {
-      const provider = this.detect()
-      if (!provider) throw new Error('Backpack not installed')
-      await provider.connect()
-      return { provider, pubkey: provider.publicKey.toString() }
-    }
-  }
-]
+  <!-- WALLET MODAL -->
+  <div class="overlay" id="wallet-modal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('wallet-modal')">✕</button>
+      <div class="modal-head">
+        <div class="modal-tag">Connect</div>
+        <div class="modal-title">Your <em>wallet</em></div>
+      </div>
+      <div class="modal-body" id="wallet-body"></div>
+    </div>
+  </div>
 
-/**
- * Check which wallets are installed in the current browser
- * @returns {Array} list of wallet definitions with `installed` flag
- */
-export function detectInstalledWallets() {
-  return SUPPORTED_WALLETS.map(w => ({ ...w, installed: !!w.detect() }))
-}
+  <!-- NODE WIZARD MODAL -->
+  <div class="overlay" id="node-modal">
+    <div class="modal modal-wide">
+      <button class="modal-close" onclick="closeModal('node-modal')">✕</button>
+      <div class="modal-head">
+        <div class="modal-tag">Earn $SYN</div>
+        <div class="modal-title">Register a <em>node</em></div>
+      </div>
+      <div class="modal-body">
+        <div class="wiz-steps">
+          <div class="ws active" id="ws0">Requirements</div>
+          <div class="ws" id="ws1">Stake</div>
+          <div class="ws" id="ws2">Configure</div>
+          <div class="ws" id="ws3">Launch</div>
+        </div>
 
-/**
- * Connect to a wallet by ID
- * @param {string} walletId
- * @returns {Promise<WalletSession>}
- */
-export async function connectWallet(walletId) {
-  const wallet = SUPPORTED_WALLETS.find(w => w.id === walletId)
-  if (!wallet) throw new Error(`Unknown wallet: ${walletId}`)
-  const { provider, pubkey } = await wallet.connect()
-  const solBalance = await getBalance(pubkey)
-  return new WalletSession({ name: wallet.name, provider, pubkey, solBalance })
-}
+        <!-- Step 0: Requirements -->
+        <div class="wp active" id="wp0">
+          <p class="modal-desc">System requirements for a Synapse inference node.</p>
+          <div class="req-list">
+            <div class="req-item"><span class="req-ic ok">✓</span><span class="req-label">GPU: NVIDIA A100 / H100 / RTX 4090+</span><span class="req-val">Required</span></div>
+            <div class="req-item"><span class="req-ic ok">✓</span><span class="req-label">VRAM: 24 GB minimum</span><span class="req-val">Required</span></div>
+            <div class="req-item"><span class="req-ic ok">✓</span><span class="req-label">Bandwidth: 1 Gbps+ uplink</span><span class="req-val">Required</span></div>
+            <div class="req-item"><span class="req-ic ok">✓</span><span class="req-label">OS: Ubuntu 22.04 / Docker</span><span class="req-val">Required</span></div>
+            <div class="req-item"><span class="req-ic warn">!</span><span class="req-label">Uptime SLA: 95%+ required</span><span class="req-val warn">Slashing risk</span></div>
+            <div class="req-item"><span class="req-ic ok">✓</span><span class="req-label">Minimum stake: 1,000 SYN</span><span class="req-val">Required</span></div>
+          </div>
+          <div class="wiz-btns"><button class="btn-wiz-next" onclick="wizGo(1)">I meet requirements →</button></div>
+        </div>
 
-/**
- * Represents an active wallet connection
- */
-export class WalletSession {
-  constructor({ name, provider, pubkey, solBalance }) {
-    this.name = name
-    this.provider = provider
-    this.pubkey = pubkey
-    this.solBalance = solBalance
-    this.connected = true
-  }
+        <!-- Step 1: Stake -->
+        <div class="wp" id="wp1">
+          <p class="modal-desc">Set your stake. Higher stake = priority routing tier and higher earnings.</p>
+          <label class="field-label">Stake amount</label>
+          <input class="range-input" type="range" min="1000" max="50000" step="500" value="5000" id="stake-slider" oninput="updateStake()">
+          <div class="stake-big" id="stake-display">5,000 SYN</div>
+          <div class="stake-usd-hint" id="stake-usd">≈ $4,200.00</div>
+          <div class="tier-box">
+            <div class="tier-row"><span>Routing tier</span><span class="text-lime mono" id="stake-tier">Standard</span></div>
+            <div class="tier-row"><span>Est. daily earnings</span><span class="mono" id="stake-earn">~80–140 SYN</span></div>
+            <div class="tier-row"><span>Unlock period</span><span class="mono">3 epochs (~3 days)</span></div>
+          </div>
+          <div class="wiz-btns">
+            <button class="btn-wiz-back" onclick="wizGo(0)">← Back</button>
+            <button class="btn-wiz-next" onclick="wizGo(2)">Confirm stake →</button>
+          </div>
+        </div>
 
-  get shortAddress() {
-    return this.pubkey.slice(0, 4) + '…' + this.pubkey.slice(-4)
-  }
+        <!-- Step 2: Configure -->
+        <div class="wp" id="wp2">
+          <label class="field-label">Node name</label>
+          <input class="text-input" type="text" placeholder="e.g. my-node-us-01">
+          <label class="field-label">Region</label>
+          <select class="select-input">
+            <option>US East (Virginia)</option><option>US West (Oregon)</option>
+            <option>EU West (Frankfurt)</option><option>EU North (Stockholm)</option>
+            <option>APAC (Singapore)</option><option>APAC (Tokyo)</option>
+          </select>
+          <label class="field-label">Preferred models</label>
+          <select class="select-input" multiple style="height:78px">
+            <option selected>Llama 3 70B</option><option selected>Mistral 7B</option>
+            <option>Mixtral 8×7B</option><option>Qwen 72B</option><option>Falcon 40B</option>
+          </select>
+          <label class="field-label">Payout wallet</label>
+          <input class="text-input" type="text" placeholder="Your Solana address…">
+          <div class="wiz-btns">
+            <button class="btn-wiz-back" onclick="wizGo(1)">← Back</button>
+            <button class="btn-wiz-next" onclick="wizGo(3)">Register node →</button>
+          </div>
+        </div>
 
-  get solscanUrl() {
-    return `https://solscan.io/account/${this.pubkey}`
-  }
+        <!-- Step 3: Launch -->
+        <div class="wp" id="wp3">
+          <div id="launch-anim" style="text-align:center;padding:1rem 0">
+            <div class="spinner"></div>
+            <div class="launch-title">Registering node…</div>
+            <div class="modal-desc">Submitting stake and configuring on-chain.</div>
+            <div class="launch-log" id="launch-log"></div>
+          </div>
+          <div id="launch-done" style="display:none;text-align:center;padding:1rem 0">
+            <div style="font-size:44px;margin-bottom:.75rem">🟢</div>
+            <div class="launch-title">Node is live!</div>
+            <div class="modal-desc">Your node is registered and receiving inference requests.</div>
+            <button class="btn-primary" style="margin-top:1.25rem" onclick="closeModal('node-modal');navTo('nodes')">View in Nodes →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  async refreshBalance() {
-    this.solBalance = await getBalance(this.pubkey)
-    return this.solBalance
-  }
+  <!-- ── TOP BAR ── -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <div class="logo">
+        <div class="logo-mark">SY</div>
+        <span class="logo-name">Synapse</span>
+      </div>
+      <div class="topbar-divider"></div>
+      <div class="network-badge">
+        <div class="net-dot"></div>
+        <span>Mainnet</span>
+      </div>
+      <div class="topbar-stats">
+        <span class="tstat">SOL <strong id="tb-price">…</strong></span>
+        <span class="tstat">TPS <strong id="tb-tps">…</strong></span>
+        <span class="tstat">Epoch <strong id="tb-epoch">…</strong></span>
+        <span class="tstat">Validators <strong id="tb-validators">…</strong></span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn-wallet" id="wallet-top-btn" onclick="openWalletModal()">
+        Connect Wallet
+      </button>
+    </div>
+  </header>
 
-  /**
-   * Fetch transaction history with parsed SOL deltas
-   * @param {number} limit
-   * @returns {Promise<ParsedTransaction[]>}
-   */
-  async getTransactions(limit = 10) {
-    const sigs = await getSignatures(this.pubkey, limit)
-    const txs = await Promise.all(sigs.map(s => getTransaction(s.signature)))
-    return sigs.map((sig, i) => parseTx(sig, txs[i], this.pubkey))
-  }
+  <!-- ── APP SHELL ── -->
+  <div class="app-shell">
 
-  /**
-   * Sign an arbitrary message (for verification / auth)
-   * @param {string} message
-   * @returns {Promise<string>} hex-encoded signature
-   */
-  async signMessage(message) {
-    const encoded = new TextEncoder().encode(message)
-    const result = await this.provider.signMessage(encoded, 'utf8')
-    const bytes = result.signature ?? result
-    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')
-  }
+    <!-- SIDEBAR -->
+    <nav class="sidebar">
+      <div class="nav-section">App</div>
+      <div class="nav-item active" data-tab="dashboard" onclick="navTo('dashboard',this)">
+        <span class="nav-icon">◈</span><span>Dashboard</span>
+      </div>
+      <div class="nav-item" data-tab="trade" onclick="navTo('trade',this)">
+        <span class="nav-icon">⇄</span><span>Trade</span>
+      </div>
+      <div class="nav-item" data-tab="stake" onclick="navTo('stake',this)">
+        <span class="nav-icon">◉</span><span>Stake</span>
+      </div>
+      <div class="nav-item" data-tab="nodes" onclick="navTo('nodes',this)">
+        <span class="nav-icon">⊞</span><span>Nodes</span>
+      </div>
+      <div class="nav-section" style="margin-top:.5rem">Settings</div>
+      <div class="nav-item" data-tab="settings" onclick="navTo('settings',this)">
+        <span class="nav-icon">⚙</span><span>Settings</span>
+      </div>
+      <div class="sidebar-footer">
+        <a href="https://github.com/YOUR-USERNAME/synapse-protocol" target="_blank" rel="noopener" class="sidebar-link">
+          <span class="nav-icon">⌥</span><span>GitHub</span>
+        </a>
+        <a href="https://discord.gg/synapse" target="_blank" rel="noopener" class="sidebar-link">
+          <span class="nav-icon">◎</span><span>Discord</span>
+        </a>
+      </div>
+    </nav>
 
-  disconnect() {
-    this.provider?.disconnect?.()
-    this.connected = false
-  }
+    <!-- MAIN -->
+    <main class="main-content">
 
-  onAccountChange(callback) {
-    this.provider?.on?.('accountChanged', callback)
-  }
+      <!-- DASHBOARD -->
+      <section class="page active" id="page-dashboard">
+        <h1 class="page-title">Overview</h1>
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="sc-label">SOL Balance</div>
+            <div class="sc-val" id="d-bal"><span class="text-lime">—</span></div>
+            <div class="sc-sub" id="d-bal-usd">Connect wallet</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-label">SOL Price</div>
+            <div class="sc-val" id="d-price"><span class="text-lime">…</span></div>
+            <div class="sc-sub" id="d-price-change">loading…</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-label">Network TPS</div>
+            <div class="sc-val" id="d-tps"><span class="text-lime">…</span></div>
+            <div class="sc-sub" id="d-epoch">Epoch …</div>
+          </div>
+          <div class="stat-card">
+            <div class="sc-label">Validators</div>
+            <div class="sc-val" id="d-validators"><span class="text-lime">…</span></div>
+            <div class="sc-sub" id="d-slot">Slot …</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <span class="panel-title">Recent transactions</span>
+            <button class="panel-action" onclick="const s=getSession();if(s)loadTransactions(s)">Refresh</button>
+          </div>
+          <div id="tx-feed">
+            <div class="empty-state">Connect your wallet to see transaction history.</div>
+          </div>
+        </div>
+      </section>
 
-  onDisconnect(callback) {
-    this.provider?.on?.('disconnect', callback)
-  }
-}
+      <!-- TRADE -->
+      <section class="page" id="page-trade">
+        <h1 class="page-title">Trade $SYN</h1>
+        <div class="trade-layout">
+          <div class="swap-card">
+            <div class="trade-tabs">
+              <button class="trade-tab active" onclick="setTradeMode('buy',this)">BUY</button>
+              <button class="trade-tab" onclick="setTradeMode('sell',this)">SELL</button>
+            </div>
+            <div class="swap-box">
+              <div class="swap-lbl">You pay</div>
+              <div class="swap-row">
+                <input id="sol-input" class="swap-amount" type="number" value="1" min="0" step="0.01" oninput="calcSwap()">
+                <div class="swap-token"><span>◎</span> SOL</div>
+              </div>
+              <div class="swap-hint" id="sol-usd">≈ $…</div>
+            </div>
+            <div class="swap-divider">
+              <button class="btn-flip" onclick="showToast('info','Swap direction','SYN → SOL coming soon')">⇅</button>
+            </div>
+            <div class="swap-box">
+              <div class="swap-lbl">You receive</div>
+              <div class="swap-row">
+                <input id="syn-output" class="swap-amount" type="number" value="193.33" readonly style="opacity:.65">
+                <div class="swap-token"><span class="text-lime">✦</span> SYN</div>
+              </div>
+              <div class="swap-hint" id="syn-usd">≈ $…</div>
+            </div>
+            <div class="swap-details">
+              <div class="swap-detail"><span>Rate</span><span id="swap-rate">—</span></div>
+              <div class="swap-detail"><span>Network fee</span><span>~$0.002</span></div>
+              <div class="swap-detail"><span>Price impact</span><span class="text-lime">&lt;0.1%</span></div>
+              <div class="swap-detail"><span>Min. received</span><span id="swap-min">—</span></div>
+            </div>
+            <button class="btn-primary btn-swap" id="exec-swap-btn" onclick="execSwap()">
+              Connect wallet to swap
+            </button>
+          </div>
+          <div class="chart-card">
+            <div class="chart-header">
+              <div>
+                <div class="chart-price" id="chart-price">$…</div>
+                <div class="chart-change" id="chart-change">…</div>
+              </div>
+              <div class="tf-row">
+                <button class="tf-btn active" onclick="pickTf(this,'1H')">1H</button>
+                <button class="tf-btn" onclick="pickTf(this,'1D')">1D</button>
+                <button class="tf-btn" onclick="pickTf(this,'1W')">1W</button>
+                <button class="tf-btn" onclick="pickTf(this,'1M')">1M</button>
+              </div>
+            </div>
+            <canvas id="price-chart" style="width:100%;height:210px;display:block"></canvas>
+          </div>
+        </div>
+      </section>
 
-/**
- * Parse a raw transaction into a human-readable format
- */
-function parseTx(sig, tx, pubkey) {
-  const ts = sig.blockTime ?? 0
-  const err = sig.err || tx?.meta?.err
+      <!-- STAKE -->
+      <section class="page" id="page-stake">
+        <h1 class="page-title">Stake $SYN</h1>
+        <div class="stake-grid">
+          <div class="card">
+            <div class="sc-label">Currently staked</div>
+            <div class="big-num text-lime">5,000 <span class="big-unit">SYN</span></div>
+            <div class="sc-sub">≈ $4,200.00</div>
+            <div class="apy-pill"><span class="apy-dot"></span>11.2% APY · ~1.57 SYN/day</div>
+            <div class="action-row">
+              <button class="btn-action primary" onclick="showToast('info','Stake more','$SYN protocol not yet on mainnet')">Stake more</button>
+              <button class="btn-action secondary" onclick="showToast('info','Unstake','Takes 3 epochs to unlock')">Unstake</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="sc-label">Rewards this epoch</div>
+            <div class="big-num">187.3 <span class="big-unit">SYN</span></div>
+            <div class="sc-sub">Claimable now</div>
+            <div class="info-list" style="margin-top:1.25rem">
+              <div class="info-row"><span>Next epoch in</span><span id="stake-epoch-eta">…</span></div>
+              <div class="info-row"><span>Current epoch</span><span id="stake-epoch-num">…</span></div>
+              <div class="info-row"><span>Total validators</span><span class="text-lime" id="stake-validators">…</span></div>
+              <div class="info-row" style="border-bottom:none"><span>Unlock period</span><span>3 epochs</span></div>
+            </div>
+            <button class="btn-primary" style="width:100%;margin-top:1.25rem"
+              onclick="showToast('success','Rewards claimed','187.3 SYN sent to wallet')">
+              Claim 187.3 SYN
+            </button>
+          </div>
+        </div>
+      </section>
 
-  // Compute SOL delta for our account
-  let delta = null
-  if (tx?.meta && tx.transaction?.message?.accountKeys) {
-    const keys = tx.transaction.message.accountKeys
-    const idx = keys.findIndex(k => (typeof k === 'string' ? k : k.pubkey) === pubkey)
-    if (idx >= 0 && tx.meta.preBalances && tx.meta.postBalances) {
-      delta = (tx.meta.postBalances[idx] - tx.meta.preBalances[idx]) / LAMPORTS_PER_SOL
-    }
-  }
+      <!-- NODES -->
+      <section class="page" id="page-nodes">
+        <div class="page-header">
+          <h1 class="page-title">Network Nodes</h1>
+          <button class="btn-primary" onclick="openModal('node-modal')">+ Register your node</button>
+        </div>
+        <div class="nodes-table">
+          <div class="nt-head">
+            <span>Node</span><span>Status</span><span>Latency</span><span>GPUs</span><span>Reputation</span><span>Earn/day</span>
+          </div>
+          <div class="nt-row">
+            <div><div class="node-name">US-East-01</div><div class="node-loc">Virginia, US</div></div>
+            <div><span class="st-dot online"></span><span class="mono small">Online</span></div>
+            <div class="mono small">34ms</div><div class="mono small">8× A100</div>
+            <div><div class="rep-bar"><div class="rep-fill" style="width:96%"></div></div><span class="mono tiny">96/100</span></div>
+            <div class="text-lime mono small">+184 SYN</div>
+          </div>
+          <div class="nt-row">
+            <div><div class="node-name">EU-West-02</div><div class="node-loc">Frankfurt, DE</div></div>
+            <div><span class="st-dot online"></span><span class="mono small">Online</span></div>
+            <div class="mono small">48ms</div><div class="mono small">4× H100</div>
+            <div><div class="rep-bar"><div class="rep-fill" style="width:91%"></div></div><span class="mono tiny">91/100</span></div>
+            <div class="text-lime mono small">+142 SYN</div>
+          </div>
+          <div class="nt-row">
+            <div><div class="node-name">APAC-SG-03</div><div class="node-loc">Singapore</div></div>
+            <div><span class="st-dot busy"></span><span class="mono small text-warn">Busy</span></div>
+            <div class="mono small">82ms</div><div class="mono small">2× A100</div>
+            <div><div class="rep-bar"><div class="rep-fill" style="width:78%"></div></div><span class="mono tiny">78/100</span></div>
+            <div class="text-lime mono small">+98 SYN</div>
+          </div>
+          <div class="nt-row">
+            <div><div class="node-name">US-West-04</div><div class="node-loc">Oregon, US</div></div>
+            <div><span class="st-dot online"></span><span class="mono small">Online</span></div>
+            <div class="mono small">41ms</div><div class="mono small">4× A100</div>
+            <div><div class="rep-bar"><div class="rep-fill" style="width:88%"></div></div><span class="mono tiny">88/100</span></div>
+            <div class="text-lime mono small">+133 SYN</div>
+          </div>
+        </div>
+      </section>
 
-  return {
-    signature: sig.signature,
-    shortSignature: sig.signature.slice(0, 8) + '…' + sig.signature.slice(-5),
-    timestamp: ts,
-    timeAgo: timeAgo(ts),
-    err,
-    delta,
-    isIncoming: delta !== null && delta > 0,
-    isOutgoing: delta !== null && delta < 0,
-    label: err ? 'Failed transaction' : delta > 0 ? 'Received SOL' : delta < 0 ? 'Sent SOL' : 'Program interaction',
-    solscanUrl: `https://solscan.io/tx/${sig.signature}`
-  }
-}
+      <!-- SETTINGS -->
+      <section class="page" id="page-settings">
+        <h1 class="page-title">Settings</h1>
+        <div class="settings-grid">
+          <div class="card">
+            <div class="sc-label">RPC Endpoint</div>
+            <input class="text-input" type="text" id="rpc-input" value="https://api.mainnet-beta.solana.com">
+            <button class="btn-secondary" style="margin-top:.6rem" onclick="saveRpc()">Save endpoint</button>
+          </div>
+          <div class="card">
+            <div class="sc-label">Slippage Tolerance</div>
+            <div class="slippage-row">
+              <button class="btn-slip" onclick="setSlippage(0.1)">0.1%</button>
+              <button class="btn-slip active" onclick="setSlippage(0.5)">0.5%</button>
+              <button class="btn-slip" onclick="setSlippage(1.0)">1.0%</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="sc-label">Network</div>
+            <div style="font-size:14px;font-weight:500;margin-bottom:.5rem">Solana Mainnet Beta</div>
+            <div class="sc-sub" style="line-height:1.7">Token standard: SPL<br>Governance: Solana Realms<br>Audited by OtterSec + Neodyme</div>
+          </div>
+          <div class="card">
+            <div class="sc-label">About</div>
+            <div style="font-size:14px;font-weight:500;margin-bottom:.5rem">Synapse Protocol v0.1</div>
+            <div class="sc-sub" style="line-height:1.8">
+              Decentralized AI inference marketplace on Solana.<br>
+              <a href="https://github.com/YOUR-USERNAME/synapse-protocol" target="_blank" rel="noopener" class="text-lime">GitHub →</a> &nbsp;
+              <a href="https://discord.gg/synapse" target="_blank" rel="noopener" class="text-lime">Discord →</a>
+            </div>
+          </div>
+        </div>
+      </section>
 
-function timeAgo(ts) {
-  const s = Math.floor(Date.now() / 1000 - ts)
-  if (s < 60) return `${s}s ago`
-  if (s < 3600) return `${Math.floor(s / 60)}m ago`
-  if (s < 86400) return `${Math.floor(s / 3600)}h ago`
-  return `${Math.floor(s / 86400)}d ago`
-}
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

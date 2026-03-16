@@ -1,74 +1,101 @@
-/**
- * Jupiter Aggregator integration
- * Provides swap quotes and executes swaps via Jupiter's API and UI
- *
- * Jupiter is the main DEX aggregator on Solana.
- * $SYN is not yet on mainnet so we redirect to Jupiter's UI
- * instead of executing via the API directly. Once $SYN has a
- * mint address, replace SYN_MINT and enable the quote/swap API.
- */
+# Synapse Protocol
 
-const JUPITER_API = 'https://quote-api.jup.ag/v6'
-const JUPITER_UI = 'https://jup.ag/swap'
+Decentralized AI inference marketplace on Solana. This is the **app utility** — a browser-based dashboard for interacting with the Synapse Protocol network.
 
-// SOL mint address
-export const SOL_MINT = 'So11111111111111111111111111111111111111112'
+## Features
 
-// $SYN mint — replace with real address after token launch
-export const SYN_MINT = 'SYNxxxx' // TODO: update after mainnet launch
+| Feature | Status | Source |
+|---|---|---|
+| Wallet connect (Phantom, Solflare, Backpack) | ✅ Live | `src/api/wallet.js` |
+| SOL balance (real on-chain) | ✅ Live | `src/api/rpc.js` |
+| SOL price + 24h change | ✅ Live | `src/api/price.js` (CoinGecko) |
+| Price chart (1H / 1D / 1W / 1M) | ✅ Live | `src/api/price.js` |
+| Network TPS | ✅ Live | `src/api/rpc.js` |
+| Validator count | ✅ Live | `src/api/rpc.js` |
+| Epoch + slot height | ✅ Live | `src/api/rpc.js` |
+| Transaction history | ✅ Live | `src/api/rpc.js` |
+| Swap SOL → SYN | ✅ Live (via Jupiter) | `src/api/jupiter.js` |
+| $SYN balance / staking | ⏳ After mainnet launch | — |
 
-/**
- * Get a swap quote from Jupiter
- * Currently returns a notional estimate since $SYN isn't on mainnet.
- * When SYN_MINT is set, this will use the real Jupiter Quote API.
- *
- * @param {number} solAmount amount of SOL to swap
- * @returns {Promise<SwapQuote>}
- */
-export async function getSwapQuote(solAmount) {
-  // Once $SYN is on mainnet, uncomment this block:
-  /*
-  const inputMint = SOL_MINT
-  const outputMint = SYN_MINT
-  const amount = Math.floor(solAmount * 1e9) // lamports
-  const url = `${JUPITER_API}/quote?inputMint=${inputMint}&outputMint=${outputMint}&amount=${amount}&slippageBps=50`
-  const res = await fetch(url)
-  const data = await res.json()
-  return {
-    inputAmount: solAmount,
-    outputAmount: data.outAmount / 1e6, // adjust for SYN decimals
-    priceImpact: parseFloat(data.priceImpactPct),
-    route: data
-  }
-  */
+## Getting started
 
-  // Notional rate until mainnet
-  const RATE = 193.33
-  return {
-    inputAmount: solAmount,
-    outputAmount: solAmount * RATE,
-    priceImpact: 0.001,
-    rate: RATE,
-    isNotional: true
-  }
-}
+```bash
+git clone https://github.com/YOUR-USERNAME/synapse-protocol.git
+cd synapse-protocol
+npm install
+npm run dev
+```
 
-/**
- * Open Jupiter UI to execute a swap
- * @param {number} solAmount
- */
-export function openJupiterSwap(solAmount) {
-  const url = `${JUPITER_UI}/SOL-SYN?inAmount=${solAmount}`
-  window.open(url, '_blank', 'noopener,noreferrer')
-}
+Open [http://localhost:3000](http://localhost:3000).
 
-/**
- * Build a deep link to Jupiter with pre-filled amounts
- * @param {string} inputMint
- * @param {string} outputMint
- * @param {number} amount
- * @returns {string}
- */
-export function jupiterDeepLink(inputMint = 'SOL', outputMint = 'SYN', amount = 0) {
-  return `${JUPITER_UI}/${inputMint}-${outputMint}?inAmount=${amount}`
-}
+## Build for production
+
+```bash
+npm run build
+# output in dist/
+```
+
+## Project structure
+
+```
+synapse-protocol/
+├── index.html              # App shell (HTML only, no logic)
+├── src/
+│   ├── main.js             # Entry point — wires all modules together
+│   ├── api/
+│   │   ├── rpc.js          # Solana JSON-RPC client
+│   │   ├── price.js        # CoinGecko price + chart data
+│   │   ├── wallet.js       # Wallet adapters (Phantom/Solflare/Backpack)
+│   │   └── jupiter.js      # Jupiter swap integration
+│   ├── components/
+│   │   ├── walletModal.js  # Wallet connect modal UI + session management
+│   │   ├── modal.js        # Generic modal open/close
+│   │   └── toast.js        # Toast notification system
+│   ├── utils/
+│   │   ├── chart.js        # Canvas price chart renderer
+│   │   └── format.js       # Number, address, time formatting
+│   └── styles/
+│       └── app.css         # All styles
+├── public/
+│   └── favicon.svg
+├── vite.config.js
+└── package.json
+```
+
+## API modules
+
+### `src/api/rpc.js`
+Direct Solana JSON-RPC wrapper. Exports:
+- `getBalance(pubkey)` → SOL balance
+- `getEpochInfo()` → epoch, slot, slotsInEpoch
+- `getNetworkTps()` → transactions per second
+- `getValidatorCount()` → total validator count
+- `getSignatures(pubkey, limit)` → recent tx signatures
+- `getTransaction(signature)` → full tx data
+- `getNetworkStats()` → all of the above in one call
+- `setRpcUrl(url)` → switch RPC endpoint at runtime
+
+### `src/api/price.js`
+CoinGecko price feed. Exports:
+- `getSolPrice()` → `{ price, change24h }`
+- `getPriceChart(timeframe)` → `number[]` (1H/1D/1W/1M)
+
+### `src/api/wallet.js`
+Browser wallet adapters. Exports:
+- `detectInstalledWallets()` → list with `installed` flag
+- `connectWallet(walletId)` → `WalletSession`
+- `WalletSession` class with `.getTransactions()`, `.signMessage()`, `.refreshBalance()`
+
+### `src/api/jupiter.js`
+Jupiter aggregator integration. Exports:
+- `getSwapQuote(solAmount)` → quote object
+- `openJupiterSwap(solAmount)` → opens Jupiter UI in new tab
+- Update `SYN_MINT` with the real mint address after token launch to enable on-chain swaps
+
+## Contributing
+
+PRs welcome. Open an issue before submitting large changes.
+
+## License
+
+MIT
